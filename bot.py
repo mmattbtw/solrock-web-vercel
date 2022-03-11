@@ -146,8 +146,7 @@ load_dotenv()
 
 
 def post_version_number(twitch_id: int, version: str) -> bool:
-    """
-    Posts the version number to mmatt's API for use in the Twitch Extension.
+    """Posts the version number to mmatt's API for use in the Twitch Extension.
 
     :param twitch_id: The Twitch ID to be used in teh request
     :param version: What version to update in the databse

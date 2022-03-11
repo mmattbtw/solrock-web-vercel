@@ -11,8 +11,7 @@ load_dotenv()
 
 class Uberduck:
     def get_job(text: str, voice_name: str) -> dict:
-        """
-        Get the Uberduck Voice job.
+        """Get the Uberduck Voice job.
 
         :param text: The text to be spoken.
         :param voice_name: The name of the voice to be used.
@@ -59,8 +58,7 @@ class Uberduck:
         }
 
     def check_tts(uuid: str) -> dict:
-        """
-        Check if the TTS job is finished, if it is finished, it returns the URL to the audio file.
+        """Check if the TTS job is finished, if it is finished, it returns the URL to the audio file.
 
         :param uuid: The UUID of the job.
         :return: The URL to the audio file.
