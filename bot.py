@@ -13,7 +13,7 @@ import time
 import urllib.request
 from datetime import datetime
 from pathlib import Path
-from tkinter import Button, Canvas, Entry, PhotoImage, Tk
+from tkinter import Button, Canvas, Entry, Label, PhotoImage, Tk
 from typing import Optional
 from uuid import UUID
 
@@ -147,6 +147,74 @@ log.debug(playsounds)
 with open("config.json", "r") as f:
     config = json.load(f)
 load_dotenv()
+
+
+# <-- UI -->
+
+OUTPUT_PATH = Path(__file__).parent
+ASSETS_PATH = OUTPUT_PATH / Path("./assets")
+
+
+def relative_to_assets(path: str) -> Path:
+    return ASSETS_PATH / Path(path)
+
+
+window = Tk()
+window.title("AI TTS Donations")
+
+window.geometry("811x279")
+window.configure(bg="#7CCFFF")
+
+
+canvas = Canvas(
+    window,
+    bg="#7CCFFF",
+    height=279,
+    width=811,
+    bd=0,
+    highlightthickness=0,
+    relief="ridge",
+)
+
+canvas.place(x=0, y=0)
+image_image_1 = PhotoImage(file=relative_to_assets("image_1.png"))
+image_1 = canvas.create_image(470, 50.0, image=image_image_1)
+
+image_image_2 = PhotoImage(file=relative_to_assets("image_2.png"))
+image_2 = canvas.create_image(405.0, 22.0, image=image_image_2)
+
+button_image_1 = PhotoImage(file=relative_to_assets("button_1.png"))
+button_1 = Button(
+    image=button_image_1,
+    borderwidth=0,
+    highlightthickness=0,
+    relief="flat",
+)
+button_1.bind("<Button-1>", lambda x: threading.Thread(target=skip_tts).start())
+button_1.place(x=461.9999999999998, y=51.0, width=340.0, height=54.0)
+
+entry_image_1 = PhotoImage(file=relative_to_assets("entry_1.png"))
+entry_bg_1 = canvas.create_image(269.9999999999998, 249.0, image=entry_image_1)
+entry_1 = Entry(bd=0, bg="#B8B8B8", highlightthickness=0)
+entry_1.place(x=10.999999999999773, y=227.0, width=518.0, height=42.0)
+
+test_text = Label(text=f"Version {VERSION}", background=None, font=("Inter", 12))
+test_text.place(x=10.999999999999773, y=100.0, width=518.0, height=42.0)
+
+image_image_3 = PhotoImage(file=relative_to_assets("image_3.png"))
+image_3 = canvas.create_image(117.99999999999977, 195.0, image=image_image_3)
+
+button_image_2 = PhotoImage(file=relative_to_assets("button_2.png"))
+button_2 = Button(
+    image=button_image_2,
+    borderwidth=0,
+    highlightthickness=0,
+    relief="flat",
+)
+button_2.bind("<Button-1>", lambda x: threading.Thread(target=test_tts).start())
+button_2.place(x=551.9999999999998, y=227.0, width=192.0, height=44.0)
+window.resizable(False, False)
+window.iconbitmap("./assets/trihard.ico")
 
 
 def post_version_number(twitch_id: int, version: str) -> bool:
@@ -627,71 +695,6 @@ def skip_tts() -> None:
     log.info("Skipping TTS")
     simpleaudio.stop_all()
     reset_overlay()
-
-
-# <-- UI -->
-
-OUTPUT_PATH = Path(__file__).parent
-ASSETS_PATH = OUTPUT_PATH / Path("./assets")
-
-
-def relative_to_assets(path: str) -> Path:
-    return ASSETS_PATH / Path(path)
-
-
-window = Tk()
-window.title("AI TTS Donations")
-
-window.geometry("811x279")
-window.configure(bg="#7CCFFF")
-
-
-canvas = Canvas(
-    window,
-    bg="#7CCFFF",
-    height=279,
-    width=811,
-    bd=0,
-    highlightthickness=0,
-    relief="ridge",
-)
-
-canvas.place(x=0, y=0)
-image_image_1 = PhotoImage(file=relative_to_assets("image_1.png"))
-image_1 = canvas.create_image(470, 50.0, image=image_image_1)
-
-image_image_2 = PhotoImage(file=relative_to_assets("image_2.png"))
-image_2 = canvas.create_image(405.0, 22.0, image=image_image_2)
-
-button_image_1 = PhotoImage(file=relative_to_assets("button_1.png"))
-button_1 = Button(
-    image=button_image_1,
-    borderwidth=0,
-    highlightthickness=0,
-    relief="flat",
-)
-button_1.bind("<Button-1>", lambda x: threading.Thread(target=skip_tts).start())
-button_1.place(x=461.9999999999998, y=51.0, width=340.0, height=54.0)
-
-entry_image_1 = PhotoImage(file=relative_to_assets("entry_1.png"))
-entry_bg_1 = canvas.create_image(269.9999999999998, 249.0, image=entry_image_1)
-entry_1 = Entry(bd=0, bg="#B8B8B8", highlightthickness=0)
-entry_1.place(x=10.999999999999773, y=227.0, width=518.0, height=42.0)
-
-image_image_3 = PhotoImage(file=relative_to_assets("image_3.png"))
-image_3 = canvas.create_image(117.99999999999977, 195.0, image=image_image_3)
-
-button_image_2 = PhotoImage(file=relative_to_assets("button_2.png"))
-button_2 = Button(
-    image=button_image_2,
-    borderwidth=0,
-    highlightthickness=0,
-    relief="flat",
-)
-button_2.bind("<Button-1>", lambda x: threading.Thread(target=test_tts).start())
-button_2.place(x=551.9999999999998, y=227.0, width=192.0, height=44.0)
-window.resizable(False, False)
-window.iconbitmap("./assets/trihard.ico")
 
 
 def main_loop():
