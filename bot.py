@@ -40,6 +40,19 @@ from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.pubsub import PubSub
 from twitchAPI.twitch import Twitch
 from twitchAPI.types import AuthScope
+from flask import Flask, request
+from flask_cors import CORS
+
+api_app = Flask(__name__)
+CORS(api_app)
+
+
+@api_app.route("/tts", methods=["POST"])
+def tts():
+    log.debug(request.json())
+
+    return "lmfao"
+
 
 sio = socketio.Client()
 
@@ -171,6 +184,8 @@ def post_version_number(twitch_id: int, version: str) -> bool:
 
 
 def request_tts(message: str, failed: Optional[bool] = False) -> None:
+    message = re.sub(CHEER_REGEX, message)
+
     # sourcery no-metrics
     messages: list = message.split("||")
     log.debug(messages)
@@ -461,243 +476,9 @@ def request_tts(message: str, failed: Optional[bool] = False) -> None:
         t.join()
 
 
-def callback_channel_points(
-    uuid: UUID, data: dict, failed: Optional[bool] = False
-) -> None:
-    log.debug(data)
-
-    if (
-        data["data"]["redemption"]["reward"]["title"].lower()
-        == config["CHANNEL_POINTS_REWARD"].lower()
-    ):
-        message: str = data["data"]["redemption"]["user_input"]
-
-        for i in config["BLACKLISTED_WORDS"]:
-            if i in message.lower():
-                log.info("Blacklisted word found")
-                return
-
-        request_tts(message=message, failed=False)
-
-
-def callback_bits(uuid: UUID, data: dict, failed: Optional[bool] = False) -> None:
-    log.debug(data)
-
-    bits: str = data["data"]["bits_used"]
-
-    message: str = data["data"]["chat_message"]
-
-    for i in config["BLACKLISTED_WORDS"]:
-        if i in message.lower():
-            log.info("Blacklisted word found")
-            return
-
-    if config["MIN_BIT_AMOUNT"] > int(bits):
-        log.info("Cheered bits is less than the minimum bit amount")
-        return
-
-    if len(message) > config["MAX_MSG_LENGTH"]:
-        log.info("Cheered message is longer than the maximum message length")
-        return
-
-    message = re.sub(
-        CHEER_REGEX,
-        "",
-        message,
-    )
-
-    request_tts(message=message, failed=False)
-
-
-def connect():
-    sio.emit(
-        "authenticate", {"method": "jwt", "token": os.environ.get("STREAMELEMENTS_JWT")}
-    )
-
-
-def on_streamelements_event(data, *args):
-    log.debug(data)
-
-    def check_message(data) -> None:
-        message: str = data["event"]["message"]
-
-        if len(message) > config["MAX_MSG_LENGTH"]:
-            log.info("Tip message is longer than the maximum message length")
-            return
-
-        for i in config["BLACKLISTED_WORDS"]:
-            if i in message.lower():
-                log.info("Blacklisted word found")
-                return
-
-        if data["listener"] == "cheer-latest":
-            message = re.sub(
-                CHEER_REGEX,
-                "",
-                message,
-            )
-
-        request_tts(message=message, failed=False)
-
-    if data["listener"] == "tip-latest" and data["event"]["amount"] >= int(
-        config["MIN_TIP_AMOUNT"]
-    ):
-        check_message(data)
-
-    elif data["listener"] == "cheer-latest" and data["event"]["amount"] >= int(
-        config["MIN_BIT_AMOUNT"]
-    ):
-        check_message(data)
-
-    elif data["listener"] == "subscriber-latest" and data["event"]["amount"] >= 2:
-        check_message(data)
-
-
-def on_streamelements_authenticated(data):
-    log.debug(data)
-    log.info("StreamElements connected!")
-
-
-async def main():
-    if config["BITS_OR_CHANNEL_POINTS"].lower() in ["bits", "channel_points"]:
-        # setting up Authentication and getting your user id
-        twitch = Twitch(
-            os.environ.get("TWITCH_CLIENT_ID"), os.environ.get("TWITCH_SECRET")
-        )
-        target_scope: list = [AuthScope.BITS_READ, AuthScope.CHANNEL_READ_REDEMPTIONS]
-
-        auth = UserAuthenticator(twitch, target_scope, force_verify=False)
-        # this will open your default browser and prompt you with the twitch verification website
-        token, refresh_token = auth.authenticate()
-        # add User authentication
-        twitch.set_user_authentication(token, target_scope, refresh_token)
-
-        user_id: str = twitch.get_users(logins=[os.environ.get("TWITCH_USERNAME")])[
-            "data"
-        ][0]["id"]
-
-        # starting up PubSub
-        pubsub = PubSub(twitch)
-        pubsub.start()
-        # you can either start listening before or after you started pubsub.
-        if config["BITS_OR_CHANNEL_POINTS"].lower() == "channel_points":
-            uuid = pubsub.listen_channel_points(user_id, callback_channel_points)
-        elif (
-            config["BITS_OR_CHANNEL_POINTS"].lower() == "bits"
-            or config["BITS_OR_CHANNEL_POINTS"] is None
-        ):
-            uuid: UUID = pubsub.listen_bits(user_id, callback_bits)
-
-        # Only Available to Twitch atm.
-        if os.environ.get("MM_API_KEY") is not None:
-            post_version_number(user_id, VERSION)
-
-    # ### StreamElements ###
-    if config["BITS_OR_CHANNEL_POINTS"].lower() == "streamelements":
-        sio.on("connect", connect)
-        sio.on("event", on_streamelements_event)
-        sio.on("event:test", on_streamelements_event)
-        sio.on("authenticated", on_streamelements_authenticated)
-
-        sio.connect("https://realtime.streamelements.com", transports=["websocket"])
-
-    log.info("Pubsub Ready!")
-
-
-def test_tts() -> None:
-    log.info("Testing TTS")
-    message: str = entry_1.get()
-    if not message:
-        return
-    message = re.sub(
-        CHEER_REGEX,
-        "",
-        message,
-    )
-
-    for i in config["BLACKLISTED_WORDS"]:
-        if i in message.lower():
-            log.info("Blacklisted word found")
-            return
-
-    request_tts(message=message, failed=False)
-
-
-def skip_tts() -> None:
-    log.info("Skipping TTS")
-    simpleaudio.stop_all()
-    reset_overlay()
-
-
-# <-- UI -->
-
-OUTPUT_PATH = Path(__file__).parent
-ASSETS_PATH = OUTPUT_PATH / Path("./assets")
-
-
-def relative_to_assets(path: str) -> Path:
-    return ASSETS_PATH / Path(path)
-
-
-window = Tk()
-window.title("AI TTS Donations")
-
-window.geometry("811x279")
-window.configure(bg="#7CCFFF")
-
-
-canvas = Canvas(
-    window,
-    bg="#7CCFFF",
-    height=279,
-    width=811,
-    bd=0,
-    highlightthickness=0,
-    relief="ridge",
-)
-
-canvas.place(x=0, y=0)
-image_image_1 = PhotoImage(file=relative_to_assets("image_1.png"))
-image_1 = canvas.create_image(470, 50.0, image=image_image_1)
-
-image_image_2 = PhotoImage(file=relative_to_assets("image_2.png"))
-image_2 = canvas.create_image(405.0, 22.0, image=image_image_2)
-
-button_image_1 = PhotoImage(file=relative_to_assets("button_1.png"))
-button_1 = Button(
-    image=button_image_1,
-    borderwidth=0,
-    highlightthickness=0,
-    relief="flat",
-)
-button_1.bind("<Button-1>", lambda x: threading.Thread(target=skip_tts).start())
-button_1.place(x=461.9999999999998, y=51.0, width=340.0, height=54.0)
-
-entry_image_1 = PhotoImage(file=relative_to_assets("entry_1.png"))
-entry_bg_1 = canvas.create_image(269.9999999999998, 249.0, image=entry_image_1)
-entry_1 = Entry(bd=0, bg="#B8B8B8", highlightthickness=0)
-entry_1.place(x=10.999999999999773, y=227.0, width=518.0, height=42.0)
-
-image_image_3 = PhotoImage(file=relative_to_assets("image_3.png"))
-image_3 = canvas.create_image(117.99999999999977, 195.0, image=image_image_3)
-
-button_image_2 = PhotoImage(file=relative_to_assets("button_2.png"))
-button_2 = Button(
-    image=button_image_2,
-    borderwidth=0,
-    highlightthickness=0,
-    relief="flat",
-)
-button_2.bind("<Button-1>", lambda x: threading.Thread(target=test_tts).start())
-button_2.place(x=551.9999999999998, y=227.0, width=192.0, height=44.0)
-window.resizable(False, False)
-window.iconbitmap("./assets/trihard.ico")
-
-
-def main_loop():
-    window.mainloop()
+def run_api():
+    api_app.run(port=69420)
 
 
 nest_asyncio.apply()
-asyncio.run(main())
-asyncio.run(main_loop())
+asyncio.run(run_api())
